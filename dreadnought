@@ -1,0 +1,16 @@
+#!/usr/bin/env python
+
+from dnlib import jsapi
+import dnshell
+
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) == 2:
+        filename = sys.argv[1]
+        jsapi.run( filename, {} )
+    else:
+        dnshell.run()  
+
+
+

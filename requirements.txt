@@ -1,0 +1,6 @@
+CherryPy>=3.6.0
+PyInline>=0.03
+PyV8>=1.0-dev
+Routes>=2.1
+ctypesgen>=0.0
+coloredlogs>=0.8

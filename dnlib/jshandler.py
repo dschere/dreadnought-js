@@ -28,16 +28,18 @@ class IOChannel(object):
         return self.r
 
     def recv(self):
-        return pickle.load(self.r)
+        "un-serialize an incoming object"
+        return pickle.load(self.reader)
 
     def send(self, obj):
-        pickle.dump(obj, self.w)
-        self.w.flush()
+        "serialize and send an object"
+        pickle.dump(obj, self.writer)
+        self.writer.flush()
 
 
 class PipeLogger():
-    """ Private logger for the javascript callback, routes log
-        messages back to the parent process for logging.
+    """ Private logger for the javascript callbacks, this object routes log
+        messages back to the parent process (cherrypy) for logging.
     """
     def __init__(self, logger_name, logLevel=logging.DEBUG):
 
@@ -82,7 +84,7 @@ JsCbLookup = []
 def AddJsCb( path, jscb, options ):
 
     # create a logger for this callback
-    logger = PipeLogger( options.get('method','http') + "://" + path )
+    logger = PipeLogger( "[%s]%s" % (options.get('method','http'), path) )
 
     # get optional callback user arguments
     jsargs = options.get('args',None)
@@ -94,6 +96,10 @@ def AddJsCb( path, jscb, options ):
 
 
 class JSHandler(object):
+    """ This object represents the child process that handles incoming 
+        web requests and sends responses back to cherrypy. 
+    """
+
     def __init__(self, api):
         self.context = PyV8.JSContext( api )
         self.req_chan = IOChannel()
@@ -104,23 +110,29 @@ class JSHandler(object):
     def start(self):
         pid = os.fork()
         if pid == 0:
+            # double fork to prevent potential zombie processes.
             if os.fork() == 0:
                 self.run()
                 logging.info("child process exiting")
+
+            # both child and grandchild terminate here.  
             os._exit(0)
 
     def transcation(self, req):
         # Send a request to the javascript callback, return the response along with
         # extra options associated with this callback.
 
-        self.lock.aquire()
-        (jscb, jsargs, logger, options) = JsCbLookup[ req['ident'] ]
-        res  = self._transaction(logger, req)
+        self.lock.acquire()
+        try:
+            (jscb, jsargs, logger, options) = JsCbLookup[ req['ident'] ]
+            res  = self._transaction(logger, req)
+        except:
+            res = {'exc': traceback.format_exc() }
         self.lock.release()
 
         if "exc" in res:
             raise RuntimeError, res['exc']
-        return res, options
+        return res
 
 
     def _transaction(self, logger, req):
@@ -132,9 +144,10 @@ class JSHandler(object):
         while True:
             for (fd,evt) in p.poll(-1):
                 if logger.fileno() == fd and evt & select.POLLIN:
-                    # Note: root logger is a passthrough with no
-                    # formatting except %(message)s
-                    logger.info(logger.read()[:-1])
+                    # Note: root logger is configured as a passthrough with no
+                    # formatting except %(message)s, this allows it to be a 
+                    # collection point for the route loggers.
+                    logging.info(logger.read()[:-1])
 
                 elif self.res_chan.fileno() == fd and evt & select.POLLIN:
 
@@ -170,23 +183,15 @@ class JSHandler(object):
 
     def _jsexec( self, req ):
         # execute javascript command
+        (jscb, jsargs, pipe_logger, options) = JsCbLookup[ req['ident'] ]
 
-        (jscb, jsargs, logger, options) = JsCbLookup[ req['ident'] ]
-        # inject variables into javascripot namespace.
-        self.context.locals.__dn = {
-            'cb'     : jscb,
-            'logger' : logger,
-            'cb_args': jsargs,
-            'req'    : req,
-            'res'    : None
-        }
-
-        # execute callback, this one line is the goal of the entire module!
-        self.context.eval("""
-        var __dn.res = __dn.cb(__dn.logger,__dn.req, __dn.cb_args);
-        """)
-        return dict(self.context.locals.__dn['res'])
-
+        self.context.locals.jscb = jscb 
+        self.context.locals.jsargs = jsargs
+        self.context.locals.logger =  pipe_logger.logger
+        self.context.locals.req = req
+        self.context.eval("var res = jscb(logger,req,jsargs);")
+        return dict(self.context.locals.res) 
+         
 
     def run(self):
         p = select.poll()
@@ -203,7 +208,7 @@ class JSHandler(object):
                 if req.get('streaming',False):
                     res = self._handle_streaming( req )
                 else:
-                    self.context.begin()
+                    self.context.enter()
                     res = self._jsexec( req )
                     self.context.leave()
             except:
@@ -240,7 +245,7 @@ class JsHandlerControl:
 
     def checkout(self):
         # return handler and index, checkout the handler from the cache
-        self.lock.aquire()
+        self.lock.acquire()
         result = None
         count = 0
         while not result:
@@ -260,7 +265,7 @@ class JsHandlerControl:
 
     def checkin(self, jsh, idx):
         # check handker back into cache
-        self.lock.aquire()
+        self.lock.acquire()
         self.handlers[self.idx] = (jsh,False)
         self.lock.release()
 

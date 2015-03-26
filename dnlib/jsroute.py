@@ -1,7 +1,10 @@
 import jshandler
 import json
+import cherrypy
+import logging
 
 
+# Pool of child processes running javascript 
 JsPool = jshandler.JsHandlerControl()
 
 
@@ -12,16 +15,26 @@ class RouteController:
     dictionary as a result there could be collissions, this
     class separates the two.
     """
-    def __init__(self, ident, options):
+    def __init__(self, path, ident, options):
         self.ident = ident
         self.options = options
+        self.path = path
 
     def _format_response(self, res):
-        if self.optons.get('json',False):
-            res = json.dumps(res)
+        # There must be a better way to check for a dictionary like object ...
+        try:
+            dict(res)
+        except:
+            res = {'data': res}
+
         if res.get('error',False):
             raise RuntimeError,  res['error']
-        return res
+
+        if self.options.get('json',False):
+            res['data'] = json.dumps(res['data'])
+
+        logging.debug("res = %s" % str(res))
+        return res['data']
 
 
     # generator used for streaming.
@@ -39,6 +52,7 @@ class RouteController:
         # set the streaming flag so we follow a different
         # control path in the js handler.
         req['streaming'] = True
+        req['bytes_read'] = 0
         while True:
             res = jsh.transcation(req)
             if 'error' in res:
@@ -47,9 +61,11 @@ class RouteController:
 
             # fetch streaming data
             data = res.get('data',None)
-            if not data:
+            if not data or len(data) == 0:
                 # no more data we're done.
                 break
+
+            req['bytes_read'] += len(data)
 
             # return a generator to cherrypy, have it call
             # the next method until there is no more data.
@@ -87,7 +103,7 @@ class RouteController:
                 del qs_params[k]
 
         req = {
-            "path": self.js_handler.ident,
+            "path": self.path,
             "method": method,
             "qs_params": qs_params,
             "post_data": post_data,
@@ -98,7 +114,7 @@ class RouteController:
         # to use.
         jsh, idx = JsPool.checkout()
         if 'stream' in self.options and self.options['stream']:
-            return self._stream_generator(jsh,idx,req,self.options)
+            return self.generator(jsh,idx,req,self.options)
         else:
             # not-streaming, ajax request or a dynamic web page.
             res = jsh.transcation(req)
@@ -136,7 +152,7 @@ class RouteRegistry:
     def register(self, path, jscb, options ):
         opt = dict(options)
         ident = jshandler.AddJsCb( path, jscb, opt )
-        control = RouteController( ident )
+        control = RouteController( path, ident, opt )
 
         # are we filtering for a particular url method ?
         method = opt.get('method',None)

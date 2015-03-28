@@ -371,25 +371,31 @@ class JsHandlerControl:
 
 
     def checkout(self):
-        # return handler and index, checkout the handler from the cache
+        """
+        Return a preallocated javascript handler to service an incoming request. The js 
+        handler contains a child process which routes the request to a javascript
+        interpreter.
+
+        If no preforked processes are available then pass to the overflow handler which
+        will fork a handler on demand.
+        """
+
         self.lock.acquire()
         result = None
         count = 0
         while not result:
-            (jsh,inuse) = self.handlers[self.idx]
-            if not inuse:
-                result = (jsh,self.idx)
-                self.handlers[self.idx] = (jsh,True)
+            if count == len(self.handlers):
+                result = self._overflow_iface()
             else:
-                self.idx = (self.idx + 1) % len(self.handlers)
+                (jsh,inuse) = self.handlers[self.idx]
+                if not inuse:
+                    result = (jsh,self.idx)
+                    self.handlers[self.idx] = (jsh,True)
+                 
+                self.idx = (self.idx + 1) % len(self.handlers) 
                 count += 1
-                if count > 0 and count % len(self.handlers):
-                    # all handlers in use so we must pause to allow
-                    # completion,
-                    # time.sleep(0.5)
-                    result = self._overflow_iface()
-
         self.lock.release()
+
         return result
 
     def checkin(self, jsh, idx):

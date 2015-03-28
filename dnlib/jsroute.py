@@ -44,7 +44,7 @@ class RouteController:
         error = None
 
         # explicitly enter javascript context
-        jsh.transcation({
+        jsh.transaction({
             'start-streaming':True,
             'streaming': True
         })
@@ -54,7 +54,10 @@ class RouteController:
         req['streaming'] = True
         req['bytes_read'] = 0
         while True:
-            res = jsh.transcation(req)
+            res = jsh.transaction(req)
+            if 'success' in res:
+                continue 
+
             if 'error' in res:
                 error = res['error']
                 break
@@ -72,7 +75,7 @@ class RouteController:
             yield data
 
         # explicitly leave javascript context
-        jsh.transcation({
+        jsh.transaction({
             'stop-streaming':True,
             'streaming': True
         })

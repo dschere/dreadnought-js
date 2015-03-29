@@ -120,7 +120,7 @@ class RouteController:
             return self.generator(jsh,idx,req,self.options)
         else:
             # not-streaming, ajax request or a dynamic web page.
-            res = jsh.transcation(req)
+            res = jsh.transaction(req)
             JsPool.checkin(jsh, idx)
             return self._format_response(res)
 

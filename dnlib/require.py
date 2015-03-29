@@ -132,7 +132,7 @@ def _require_c( filename, options ):
     library_dirs = _get(options, 'libdirs',None)
     libraries = _get(options,'libs',None)  
     includes = _get(options, 'includes',None)
-        
+
     if tool == 'PyInline':
         extras = {} 
         if library_dirs:

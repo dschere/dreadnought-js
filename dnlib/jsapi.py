@@ -221,12 +221,9 @@ class RootAPI(HandlerAPI):
         cherrypy.quickstart( script_name="/", config=self._config )
 
 
-
-    def getSettings(self):
-        return self._settings
-
-    def setSettings(self, s):        
-        self._settings = dict(s)
+    def settings(self, s):
+        for k,v in dict(s).items():        
+            self._settings[k] = v
     
 
 

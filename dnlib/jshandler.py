@@ -83,13 +83,14 @@ class NamedPipeFactory:
     def __init__(self):
         fd, self.filename = tempfile.mkstemp()
         os.close(fd)
+        if os.access(self.filename,os.F_OK):
+            os.remove(self.filename)
         os.mkfifo(self.filename)
 
     def getWriter(self):
         return NpWriter( self.filename ) 
 
     def getReader(self):
-
         return NpReader(self.filename)
 
         
@@ -158,8 +159,10 @@ class JSHandler(object):
         web requests and sends responses back to cherrypy. 
     """
 
-    def __init__(self, api, np_channels=None):
-        self.context = PyV8.JSContext( api )
+    def __init__(self, api, np_channels=None, set_context=True):
+        if set_context:
+            self.context = PyV8.JSContext( api )
+
         if not np_channels: 
             self.req_chan = IOChannel()
             self.res_chan = IOChannel()
@@ -182,6 +185,7 @@ class JSHandler(object):
     def transaction(self, req):
         # Send a request to the javascript callback, return the response along with
         # extra options associated with this callback.
+
 
         self.lock.acquire()
         try:
@@ -245,6 +249,7 @@ class JSHandler(object):
     def _jsexec( self, req ):
         # execute javascript command
         (jscb, jsargs, pipe_logger, options) = JsCbLookup[ req['ident'] ]
+ 
 
         self.context.locals.jscb = jscb 
         self.context.locals.jsargs = jsargs
@@ -268,7 +273,7 @@ class JSHandler(object):
                 req = self.req_chan.recv()
                 if req.get('streaming',False):
                     res = self._handle_streaming( req )
-                else:
+                else:                  
                     self.context.enter()
                     res = self._jsexec( req )
                     self.context.leave()
@@ -335,7 +340,8 @@ class JsHandlerControl:
         # block until child opens writer
         res_chan = npf_pair[1].getReader()
 
-        jsh = JSHandler( self.api, (req_chan,res_chan) )
+        jsh = JSHandler( self.api, (req_chan,res_chan), set_context=False )
+
         return (jsh,idx)         
 
     def __init__(self):
@@ -399,7 +405,7 @@ class JsHandlerControl:
         return result
 
     def checkin(self, jsh, idx):
-        if idx == self.OVERFLOW_HANDLER_IDX:
+        if idx != self.OVERFLOW_HANDLER_IDX:
             # check handler back into cache
             self.lock.acquire()
             self.handlers[self.idx] = (jsh,False)

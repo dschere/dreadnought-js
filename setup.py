@@ -18,12 +18,3 @@ setup(
     py_modules=['dnshell']
 )
 
-if __name__ == '__main__':
-    if "build" in sys.argv:
-        os.system("./post_build.sh")       
-    elif "install" in sys.argv:
-        os.system("./post_install.sh")       
- 
-
-
-

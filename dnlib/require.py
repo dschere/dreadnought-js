@@ -23,6 +23,8 @@ sys.path += RequirePath
 
 CTYPES_MODULES_PATH = "%s/.dreadnought-js/.python-ctypes-modules" % os.environ['HOME']
 os.system("mkdir -p %s" % CTYPES_MODULES_PATH)
+
+
 sys.path.append( CTYPES_MODULES_PATH )
 
 
@@ -168,7 +170,7 @@ def _require_c( filename, options ):
         modname = filename.split(os.sep)[-1].split('.')[0]
         modfile = CTYPES_MODULES_PATH+"/%s.py" % modname
 
-        cmd += " -o %s.py " % modname
+        cmd += " -o %s " % modfile
         print cmd
         os.system(cmd)
 

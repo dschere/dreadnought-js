@@ -28,8 +28,13 @@ class RouteController:
             res = {'data': res}
 
         if res.get('error',False):
-            raise RuntimeError,  res['error']
+            status = res.get('status',500) 
+            raise cherrypy.HTTPError(status,res['error'])
 
+        if res.get('exc',False):
+            status = res.get('status',500)
+            raise cherrypy.HTTPError(status,res['exc'])
+    
         if self.options.get('json',False):
             res['data'] = json.dumps(res['data'])
 

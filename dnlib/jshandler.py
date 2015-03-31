@@ -146,7 +146,7 @@ def AddJsCb( path, jscb, options ):
     logger = PipeLogger( "[%s]%s" % (options.get('method','http'), path) )
 
     # get optional callback user arguments
-    jsargs = options.get('args',None)
+    jsargs = options.get('userdata',None)
 
     # Append javascript callbacks to cherrypy routes to this table.
     r = len(JsCbLookup)

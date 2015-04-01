@@ -173,7 +173,8 @@ class RootAPI(HandlerAPI):
 
         self._config = {
             '/': {
-                'request.dispatch': self.registry.dispatch 
+                'request.dispatch': self.registry.dispatch,
+                'tools.sessions.on': True 
             }
         }
 

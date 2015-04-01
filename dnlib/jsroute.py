@@ -20,8 +20,9 @@ class RouteController:
         self.options = options
         self.path = path
 
-    def _format_response(self, res):
-        # There must be a better way to check for a dictionary like object ...
+    def _process_response(self, res):
+        "Process response from child process"
+
         try:
             dict(res)
         except:
@@ -37,6 +38,10 @@ class RouteController:
     
         if self.options.get('json',False):
             res['data'] = json.dumps(res['data'])
+
+        if 'permissionLevel' in res:
+            pl = int(res['permissionLevel'])
+            cherrypy.session[ cherrypy.session.id ] = pl
 
         logging.debug("res = %s" % str(res))
         return res['data']
@@ -127,12 +132,21 @@ class RouteController:
             # not-streaming, ajax request or a dynamic web page.
             res = jsh.transaction(req)
             JsPool.checkin(jsh, idx)
-            return self._format_response(res)
+            return self._process_response(res)
 
 
 
 
     def __call__(self, **params):
+
+        # if configured check permissions based on our session id
+        if 'permissionLevel' in self.options:
+            r_pl = int(self.options['permissionLevel'])
+            if cherrypy.session.id in cherrypy.session:
+                user_pl = cherrypy.session[cherrypy.session.id]
+                if r_pl >= user_pl:
+                    raise cherrypy.HTTPError(403,"Unauthorized") 
+
         return self.__handler("unknown", params )
 
 

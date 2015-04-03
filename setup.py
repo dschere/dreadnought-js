@@ -9,13 +9,15 @@ import os
 
 
 setup(
-    name="dreadnought-js",    
+    name="dreadnought-js",   
+    description = 'Dreadnought is a synthesis of cherrypy and JavaScript to create a full featured web server for JavaScript applications', 
     version="0.1",
     author="dschere",
     author_email="dave.avantgarde@gmail.com",
     url="https://github.com/dschere/dreadnought-js",
     download_url = "https://github.com/dschere/dreadnought -js/tarball/0.1",
     packages =["dnlib"] ,
-    py_modules=['dnshell']
+    py_modules=['dnshell'],
+    keywords = ['webserver', 'JavaScript']
 )
 

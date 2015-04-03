@@ -17,8 +17,6 @@ class IOChannel(object):
     """ Interprocess communication using a pipe to exchange serialized python objects
         between a child process and the main process running cherrypy.
     """
-
-
     def __init__(self):
         self.r, self.w = os.pipe()
 
@@ -37,7 +35,10 @@ class IOChannel(object):
         pickle.dump(obj, self.writer)
         self.writer.flush()
 
+
+
 class NpWriter:
+    "Manage the writing side of a named pipe"
     def __init__(self,fn):
         self.fn = fn 
         self.f = open(fn,'w')
@@ -54,6 +55,7 @@ class NpWriter:
 
 
 class NpReader:
+    "Manage the reading side of a named pipe"
     def __init__(self, fn):
         self.f = open(fn,'r')
         self.fn = fn
@@ -80,6 +82,9 @@ class NpReader:
 
 
 class NamedPipeFactory:
+    """ Replaces IOChannel if processes are forked on demand
+    """
+
     def __init__(self):
         fd, self.filename = tempfile.mkstemp()
         os.close(fd)
@@ -234,15 +239,15 @@ class JSHandler(object):
         # streaming request controls the context and calls this
         # processes over and over until done.
         if req.get('start-streaming',False):
-            self.context.begin()
-            self.res_chan.send({
+            self.context.enter()
+            return {
                 'success': True
-            })
+            }
         elif req.get('end-streaming',False):
             self.context.leave()
-            self.res_chan.send({
+            return {
                 'success': True
-            })
+            }
         else:
             return self._jsexec( req )
 

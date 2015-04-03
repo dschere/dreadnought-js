@@ -30,7 +30,8 @@ class HandlerAPI(PyV8.JSClass):
         PyV8.JSClass.__init__(self)
 
         for k,v in __builtins__.items():
-            if k not in ("chr","ord","map","filter","reduce","open","close","sum","getattr",
+            if k not in ("chr","ord","map","filter","reduce",\
+                "int","str","len","open","close","sum","getattr","buffer",\
                 "hasattr"):
                 continue     
 

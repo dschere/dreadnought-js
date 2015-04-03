@@ -10,6 +10,9 @@ JsPool = jshandler.JsHandlerControl()
 
 
 class RouteController:
+
+
+ 
     """
     Cherrpy mixes the post and get parameters into a single
     dictionary as a result there could be collissions, this
@@ -56,7 +59,8 @@ class RouteController:
         # explicitly enter javascript context
         jsh.transaction({
             'start-streaming':True,
-            'streaming': True
+            'streaming': True,
+            'ident': req['ident']
         })
 
         # set the streaming flag so we follow a different
@@ -87,7 +91,8 @@ class RouteController:
         # explicitly leave javascript context
         jsh.transaction({
             'stop-streaming':True,
-            'streaming': True
+            'streaming': True,
+            'ident': req['ident']
         })
 
         # free this child process to work on other requests.
@@ -134,6 +139,7 @@ class RouteController:
             JsPool.checkin(jsh, idx)
             return self._process_response(res)
 
+    __handler._cp_config = {'response.stream': True} 
 
 
 
@@ -158,6 +164,7 @@ class RouteController:
         return self.__handler("PUT", params )
     def DELETE(self, **params):
         return self.__handler("DELETE", params )
+
 
 
 class RouteRegistry:

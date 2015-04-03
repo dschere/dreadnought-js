@@ -1,0 +1,2 @@
+The content listed here at https://github.com/dschere/dreadnought-js is
+released under the MIT License.

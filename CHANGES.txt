@@ -1,0 +1,5 @@
+
+0.1    alpha quality code, tested on my machine against basic
+       usage cases. 
+
+0.1.1  Bug fixes, fixing the incomplete setup.py ect.  

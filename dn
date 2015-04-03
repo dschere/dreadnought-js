@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# setup environment
+source dn-env.sh
+
+# execute file
+exec dreadnought.py $*
+
+
+

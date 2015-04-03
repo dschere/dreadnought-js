@@ -17,7 +17,8 @@ setup(
     url="https://github.com/dschere/dreadnought-js",
     download_url = "https://github.com/dschere/dreadnought -js/tarball/0.1",
     packages =["dnlib"] ,
-    py_modules=['dnshell'],
-    keywords = ['webserver', 'JavaScript']
+    py_modules=['dnshell','dreadnought'],
+    package_data={'': ['LICENSE.txt','dn-env.sh','install.sh','favicon.ico','dn']},
+    keywords = ['webserver', 'JavaScript','cherrypy']
 )
 

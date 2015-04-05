@@ -14,12 +14,30 @@ import os
 import types
 import json 
 import sys
+from jslogging import RootLogger
 
 Version = "Version %(major)d.%(minor)d [%(name)s]" % {
     'major': 0,
     'minor': 1,
     'name' : 'Ironclad'
 }
+
+
+def expand(obj):
+    isObject = str(type(obj)).find('PyV8.JSObject') != -1
+    isArray  = str(type(obj)).find('PyV8.JSArray') != -1     
+
+    if isObject or type(obj) == types.DictType:
+        n = dict(obj)
+        for k, v in n.items():
+            n[k] = expand(v)
+    elif isArray or type(obj) in (types.ListType,types.TupleType):
+        n = list(obj)
+        n = map(expand, n)
+    else:
+        n = repr(obj)
+    return n
+
  
 class HandlerAPI(PyV8.JSClass):
     """
@@ -93,19 +111,11 @@ class HandlerAPI(PyV8.JSClass):
         "%s" % require.DocString
         return require.require( spec, options )
 
-    def vardump(self, obj, display=True):
-        def expand(obj):
-            if self.isObject(obj) or type(obj) == types.DictType:
-                n = dict(obj)
-                for k, v in n.items():
-                    n[k] = expand(v)
-            elif self.isArray(obj) or type(obj) in (types.ListType,types.TupleType):
-                n = list(obj)
-                n = map(expand, n)
-            else:
-                n = repr(obj)
-            return n
 
+    def show(self, obj):
+        print type(obj) == type(""), type(obj), ":", str(obj)
+
+    def vardump(self, obj, display=True):
         n = expand(obj)
         text = json.dumps(n,sort_keys=True,indent=4)+"\n" 
         if display:
@@ -131,27 +141,6 @@ class HandlerAPI(PyV8.JSClass):
                 print "-" * 32
 
 
-class RootLogger():
-    def __init__(self):
-        self.fmt = logging.Formatter(
-            fmt='%(asctime)s %(name)s [%(levelname)s] %(message)s')
-
-    def _log(self, level, message):
-        msg = self.fmt.format(logging.LogRecord(\
-            "root",level,"/",1,"%s",message,None,None))
-        # no format for the global logger so we can use info 
-        logging.info( msg )
-  
-    def debug(self, msg):  
-        self._log(logging.DEBUG, msg)
-    def info(self, msg):  
-        self._log(logging.INFO, msg)
-    def warning(self, msg):  
-        self._log(logging.WARING, msg)
-    def error(self, msg):  
-        self._log(logging.ERROR, msg)
-    def critical(self, msg):  
-        self._log(logging.CRITICAL, msg)
 
 
 class RootAPI(HandlerAPI):
@@ -179,7 +168,7 @@ class RootAPI(HandlerAPI):
             }
         }
 
-    def register(self, path, jscb, options ):
+    def register(self, path, jscb, options = {} ):
         self.logger.debug("register('%s',%s,%s)" % (path, jscb, options ))
         try:  
             self.registry.register( path, jscb, options )
@@ -234,9 +223,10 @@ def run( scriptfile, opts  ):
     """ Execute javascript, setup cherrypy and route url paths to
         registered callbacks.
     """
-    levelname = opts.get('loglevel','DEBUG')
+    levelname = opts.get('loglevel','DEBUG').upper()
+
     if not hasattr(logging,levelname):
-        raise RuntimeError, "Unknown log level %s, must be DEBUG|INFO|WARNING" % levelname
+        return "Unknown log level %s, must be DEBUG|INFO|WARN" % levelname
 
     logging.basicConfig(flename=opts.get('logfile','/dev/stdout'),
         level=getattr(logging,levelname), format="%(message)s" )

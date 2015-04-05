@@ -10,7 +10,8 @@ import logging
 import select
 import tempfile
 import struct
-
+import jsapi
+from jslogging import PipeLogger
 
 
 class IOChannel(object):
@@ -101,43 +102,6 @@ class NamedPipeFactory:
         
 
 
-class PipeLogger():
-    """ Private logger for the javascript callbacks, this object routes log
-        messages back to the parent process (cherrypy) for logging.
-    """
-    def __init__(self, logger_name, logLevel=logging.DEBUG):
-
-        self.r,self.w = os.pipe()
-        self.rr = os.fdopen(self.r,"r")
-        self.ww = os.fdopen(self.w,"w")
-
-        # create logger
-        self.logger = logging.getLogger(logger_name)
-        self.logger.setLevel(logLevel)
-
-        # create console handler and set level to debug
-        ch = logging.StreamHandler(self.ww)
-        ch.setLevel(logging.DEBUG)
-
-        # create formatter
-        formatter = logging.Formatter(\
-           '%(asctime)s %(name)s [%(levelname)s] %(message)s')
-
-        # add formatter to ch
-        ch.setFormatter(formatter)
-
-        # add ch to logger
-        self.logger.addHandler(ch)
-
-    def fileno(self):
-        return self.r
-
-    def read(self, n=0xffff):
-        return os.read( self.r, n )
-
-    def close(self):
-        self.rr.close()
-        self.ww.close()
 
 
 # global lookup table that maps an numeric identfier
@@ -159,6 +123,8 @@ def AddJsCb( path, jscb, options ):
     return r
 
 
+       
+
 class JSHandler(object):
     """ This object represents the child process that handles incoming 
         web requests and sends responses back to cherrypy. 
@@ -168,13 +134,26 @@ class JSHandler(object):
         if set_context:
             self.context = PyV8.JSContext( api )
 
-        if not np_channels: 
+        if not np_channels:
+            self.fault_detector = select.poll() 
             self.req_chan = IOChannel()
             self.res_chan = IOChannel()
+        
+            # used to detect a terminated child process
+            error = select.POLLNVAL | select.POLLERR | select.POLLHUP
+            self.fault_detector.register( self.req_chan.fileno(), error )
+            self.fault_detector.register( self.res_chan.fileno(), error )
         else:
             self.req_chan, self.res_chan = np_channels
+            self.fault_detector = None # Not needed since this process dies after 
+                                       # after the request is complete
         self.lock = threading.RLock()
 
+    def detectChildFault(self):
+        result = False
+        if self.fault_detector:
+            result = len(self.fault_detector.poll(0)) > 0
+        return result
 
     def start(self):
         pid = os.fork()
@@ -258,7 +237,7 @@ class JSHandler(object):
 
         self.context.locals.jscb = jscb 
         self.context.locals.jsargs = jsargs
-        self.context.locals.logger =  pipe_logger.logger
+        self.context.locals.logger = pipe_logger.getLogger() #pipe_logger.logger
         self.context.locals.req = req
         self.context.eval("var res = jscb(logger,req,jsargs);")
         return dict(self.context.locals.res) 
@@ -399,7 +378,7 @@ class JsHandlerControl:
                 result = self._overflow_iface()
             else:
                 (jsh,inuse) = self.handlers[self.idx]
-                if not inuse:
+                if (not inuse) and (not jsh.detectChildFault()):
                     result = (jsh,self.idx)
                     self.handlers[self.idx] = (jsh,True)
                  

@@ -155,16 +155,22 @@ class RouteController:
 
         return self.__handler("unknown", params )
 
-
+    """ 
+    @cherrypy.expose
     def GET(self, **params):
+        print "GET", self.path
         return self.__handler("GET", params )
+    @cherrypy.expose
     def POST(self, **params):
+        print "POST", self.path
         return self.__handler("POST", params )
+    @cherrypy.expose
     def PUT(self, **params):
         return self.__handler("PUT", params )
+    @cherrypy.expose
     def DELETE(self, **params):
         return self.__handler("DELETE", params )
-
+    """
 
 
 class RouteRegistry:
@@ -187,7 +193,7 @@ class RouteRegistry:
         method = opt.get('method',None)
 
         if method:
-            method = method.upper()
+            method = str(method.upper())
             methods = ['GET','POST','PUT','DELETE']
             if method not in methods:
                 raise ValueError, \
@@ -196,7 +202,7 @@ class RouteRegistry:
                  name=path,
                  route=path,
                  controller=control,
-                 conditions=method
+                 conditions=dict(method=[method])
             )
         else:
             self.dispatch.connect(name=path,

@@ -14,8 +14,7 @@ verbatim.
 __revision__ = "$Id: __init__.py,v 1.3 2001/08/29 18:27:25 ttul Exp $"
 __version__ = "0.03"
 
-class BuildError(Exception):
-    pass
+import C
 
 def build(**args):
     """
@@ -23,15 +22,10 @@ def build(**args):
     the code's methods and/or classes.
     """
 
-    # Try to import a PyInline module for the specified language.
-    try:
-        m = __import__("%s.%s" %(__name__, args['language']))
-        m = getattr(m, args['language'])
-    except ImportError:
-        raise BuildError("Failed to find module for language %s")
 
+    
     # Create a Builder object to build the chunk of code.
-    b = m.Builder(**args)
+    b = C.Builder(**args)
 
     # Build the code and return an object which contains whatever
     # resulted from the build.

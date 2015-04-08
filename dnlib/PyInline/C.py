@@ -1,7 +1,10 @@
 # PyInline C Module
 # Copyright (c)2001 Ken Simpson. All Rights Reserved.
 
-from PyInline import BuildError
+
+class BuildError( RuntimeError ):
+    pass
+
 import c_util
 import os, string, re
 

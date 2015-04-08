@@ -23,6 +23,16 @@ Version = "Version %(major)d.%(minor)d [%(name)s]" % {
 }
 
 
+def _init_jscontext( c, scriptfile ):
+    c.locals.exports = {}
+    c.locals.id = '__main__'     
+    c.locals.filename = scriptfile
+    c.locals.loaded = False
+    c.locals.parent=  None
+    c.locals.children = []
+
+    
+
 def expand(obj):
     isObject = str(type(obj)).find('PyV8.JSObject') != -1
     isArray  = str(type(obj)).find('PyV8.JSArray') != -1     
@@ -232,12 +242,15 @@ def run( scriptfile, opts  ):
         level=getattr(logging,levelname), format="%(message)s" )
          
     basedir = os.path.dirname(os.path.abspath(scriptfile))
-    require.RequirePath = [basedir+"/", basedir+"/.d-mods/"] + require.RequirePath  
+    require.RequirePath = [basedir+"/", basedir+"/.d-mods/"] + \
+       require.RequirePath  
 
     code = open(scriptfile).read()
     api = RootAPI() 
     root_context = PyV8.JSContext( api )
     root_context.enter()
+
+    _init_jscontext( root_context, scriptfile )
     try:
         root_context.eval( code )
     except KeyboardInterrupt:

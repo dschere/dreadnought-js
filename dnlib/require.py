@@ -13,7 +13,7 @@ import os
 import PyInline
 import traceback
 import PyV8
-
+import jsapi
 
 
 
@@ -93,20 +93,31 @@ def removePath( path ):
         if path in sys.path:
             sys.path.remove( path )
 
+# Cache modules 
+__ModuleCache = {}
 
 def require( spec, options ):
+    global __ModuleCache 
+
+    if spec in __ModuleCache:
+        return __ModuleCache[spec]   
+
     lang = "javascript"
     if hasattr(options,"language"):
         lang = options.language.lower()
 
     if lang == 'javascript':
-        return _require_js( spec, options )
+        mod = _require_js( spec, options )
     elif lang == 'python':
-        return _require_py( spec, options )
+        mod = _require_py( spec, options )
     elif lang == 'c':
-        return _require_c( spec, options )
+        mod = _require_c( spec, options )
     else:
         raise RequireError, "options.language must be one of [javascript,python,c]"
+
+    __ModuleCache[spec] = mod
+    return mod
+
 
 JsCode = {}
 def _file_data( filename ):
@@ -171,7 +182,7 @@ def _require_c( filename, options ):
         modfile = CTYPES_MODULES_PATH+"/%s.py" % modname
 
         cmd += " -o %s " % modfile
-        print cmd
+        logging.info( cmd )
         os.system(cmd)
 
         m = __import__(modname)
@@ -211,7 +222,8 @@ def _require_js( filename, options ):
         pathname = filename
         data = _file_data( pathname )
         if not data:
-            raise RequireError, "Path %s either does not exist or not readable" % pathname
+            raise RequireError, \
+                "Path %s either does not exist or not readable" % pathname
     else:
         data = None
         # search for filename within predefined search path
@@ -229,24 +241,37 @@ def _require_js( filename, options ):
         # like this: fubar.foo
 
         # local context used as a sandbox for evaluating modules.
-        with PyV8.JSContext() as context:
-            #modname = filename.split('/')[-1].split('.')[0]
+        with PyV8.JSContext( jsapi.HandlerAPI() ) as context:
+            # inject 'module' object into javascript.
+            context.locals.module = {
+                'exports': {},
+                'id': filename,
+                'filename': filename,
+                'loaded': False,
+                'parent': None,
+                'children': [] 
+            }
             prev_namespace = set(dir(context.locals))
+            
             try:
+                # execute javascript code in module. 
                 context.eval( data )
             except:
                 et, ev, e_tb = sys.exc_info()
                 msg = "[%s]\n\t %s" % ( pathname, ev )
                 raise RequireError, msg
 
-            curr_namespace = set(dir(context.locals))
             mod = PyV8.JSClass()
-            for n in list(curr_namespace - prev_namespace):
-                v = getattr(context.locals,n)
-                setattr(mod,n,v)
-                delattr(context.locals,n)
-
-            return mod
+            if len(context.locals.module.exports) > 0:
+                for (n,v) in dict(context.locals.module.exports).items():
+                    setattr(mod,n,v)
+            else:     
+                curr_namespace = set(dir(context.locals))            
+                for n in list(curr_namespace - prev_namespace):
+                    v = getattr(context.locals,n)
+                    setattr(mod,n,v)
+                    delattr(context.locals,n)
+            return mod 
     else:
         msgfmt = "Unable to find %s or was not readable in any search path %s"
         msg = msgfmt % (filename,str(RequirePath))

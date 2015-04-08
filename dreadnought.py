@@ -26,15 +26,18 @@ if __name__ == '__main__':
         help="logfilename, default is stdout",
         default="DEBUG"
     )
-    parser.add_argument("--execute", 
+
+    parser.add_argument("execute", 
+        nargs="*",
         help="file to be executed, if not provided then it invokes an interactive shell",
         default=None
     )
 
 
+
     args = vars(parser.parse_args())
     if args['execute']:
-        jsapi.run( args['execute'], args )
+        jsapi.run( args['execute'][0], args )
     else: 
         dnshell.run()
   

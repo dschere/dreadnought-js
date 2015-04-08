@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: PyInline
+Version: 0.03
+Summary: Inline for Python
+Home-page: http://ttul.org/~ksimpson/PyInline
+Author: Ken Simpson
+Author-email: ksimpson@ttul.org
+License: Artistic
+Description: A system which allows you to "inline" code written for other
+        programming languages directly within your Python scripts.
+Platform: UNKNOWN
